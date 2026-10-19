@@ -41,6 +41,8 @@ header b{color:var(--ink);font-size:18px;letter-spacing:.02em}
 <script>
 // ---------- settings ----------
 var KEY = "ptdevices_token"; var TOKEN = ""; try { TOKEN = localStorage.getItem(KEY) || ""; } catch (e) {}
+// One-tap setup: a link ending in #t=TOKEN saves the token on this device, then removes it from the address bar.
+(function(){ var m=/^#t=([A-Za-z0-9]+)$/.exec(location.hash||""); if(m){ TOKEN=m[1]; try{ localStorage.setItem(KEY,TOKEN); }catch(e){} try{ history.replaceState(null,"",location.pathname); }catch(e){ location.hash=""; } } })();
 var REFRESH_SECONDS = 60;
 var LOW = 25, WARN = 50;          // % thresholds: below LOW = red, below WARN = amber
 var ORDER = ["well", "cistern"];  // display order (matched against device names)
