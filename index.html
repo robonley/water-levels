@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Water Levels</title>
+<!-- No token in this file. Each device stores its own PTDevices API token in this browser only. -->
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Water"><meta name="theme-color" content="#0e1116">
+<style>
+:root{--bg:#0e1116;--card:#171b22;--ink:#e8edf2;--dim:#8b95a3;--good:#2fb36d;--warn:#e0a020;--bad:#e5484d;--line:#262c36}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{display:flex;flex-direction:column;padding:16px;gap:12px}
+header{display:flex;justify-content:space-between;align-items:baseline;color:var(--dim);font-size:15px}
+header b{color:var(--ink);font-size:18px;letter-spacing:.02em}
+#tanks{flex:1;display:flex;gap:16px;min-height:0}
+.tank{flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;gap:18px;min-width:0}
+.gauge{width:64px;border:2px solid var(--line);border-radius:12px;position:relative;overflow:hidden;background:#0b0e12;flex:none}
+.fill{position:absolute;left:0;right:0;bottom:0;transition:height .8s ease,background .4s}
+.info{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.name{font-size:clamp(20px,3.2vw,30px);color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.pct{font-size:clamp(64px,13vw,150px);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.pct small{font-size:.4em;font-weight:600;color:var(--dim)}
+.meta{margin-top:10px;font-size:clamp(13px,1.8vw,17px);color:var(--dim);line-height:1.5}
+.flag{display:inline-block;align-self:flex-start;margin-top:8px;padding:3px 10px;border-radius:999px;font-size:14px;font-weight:600}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.bg-good{background:var(--good)}.bg-warn{background:var(--warn)}.bg-bad{background:var(--bad)}
+.flag.bad{background:rgba(229,72,77,.15)}.flag.warn{background:rgba(224,160,32,.15)}
+#setup{display:none;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;max-width:560px;line-height:1.5}
+#setup input{width:100%;margin:10px 0;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0b0e12;color:var(--ink);font-size:16px}
+#setup button,#chg{background:var(--good);color:#06120b;border:0;border-radius:10px;padding:10px 18px;font-weight:700;font-size:16px}
+#chg{background:none;color:var(--dim);font-weight:400;font-size:13px;padding:0;text-decoration:underline;align-self:flex-end}
+#err{display:none;background:rgba(229,72,77,.15);color:var(--bad);border-radius:12px;padding:10px 14px}
+@media (max-width:700px){#tanks{flex-direction:column}}
+</style></head><body>
+<header><b>Water</b><span id="upd">Loading…</span></header>
+<div id="err"></div>
+<div id="setup"><b>Connect your PTDevices account</b><br>
+<span style="color:var(--dim)">Get your API token on ptdevices.com under My Account, Settings. Regenerating it there stops any old token working. Paste it here. It is saved only in this browser on this device.</span>
+<input id="tok" type="password" autocomplete="off" placeholder="Paste API token">
+<button id="save" type="button">Save and show levels</button></div>
+<div id="tanks"></div>
+<button id="chg" type="button">Change token</button>
+<script>
+// ---------- settings ----------
+var KEY = "ptdevices_token"; var TOKEN = ""; try { TOKEN = localStorage.getItem(KEY) || ""; } catch (e) {}
+var REFRESH_SECONDS = 60;
+var LOW = 25, WARN = 50;          // % thresholds: below LOW = red, below WARN = amber
+var ORDER = ["well", "cistern"];  // display order (matched against device names)
+// ------------------------------
+function cleanName(t){ return (t||"Tank").replace(/\(.*?\)/g,"").replace(/\b(19|20)\d\d\b/g,"").replace(/\s+/g," ").trim(); }
+function level(p){ return p < LOW ? "bad" : (p < WARN ? "warn" : "good"); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+function rank(d){ var n=cleanName(d.title).toLowerCase(); for(var i=0;i<ORDER.length;i++){ if(n.indexOf(ORDER[i])>=0) return i; } return 99; }
+function render(list){
+  list.sort(function(a,b){ return rank(a)-rank(b); });
+  var h="";
+  for(var i=0;i<list.length;i++){
+    var d=list[i], dd=d.device_data||{}, p=Math.round(parseFloat(dd.percent_level));
+    var ok=!isNaN(p), lv=ok?level(p):"warn", notes=[];
+    if(d.status_number!==2) notes.push('<span class="flag bad">'+esc(d.status||"Not reporting")+'</span>');
+    if(dd.battery_status_number===2) notes.push('<span class="flag warn">Sensor battery low</span>');
+    if(ok && p<LOW) notes.push('<span class="flag bad">Low</span>');
+    var vol = dd.volume_level!=null ? ' · '+esc(dd.volume_level)+' L' : '';
+    h+='<div class="tank"><div class="gauge"><div class="fill bg-'+lv+'" style="height:'+(ok?Math.max(0,Math.min(100,p)):0)+'%"></div></div>'
+      +'<div class="info"><div class="name">'+esc(cleanName(d.title))+'</div>'
+      +'<div class="pct '+lv+'">'+(ok?p:"--")+'<small>%</small></div>'
+      +'<div class="meta">Reading '+esc(d.last_updated_on||d.reported||"")+vol
+      +(dd.battery_voltage!=null?'<br>Battery '+esc(dd.battery_voltage)+' V · '+esc(dd.battery_status||""):"")+'</div>'
+      +notes.join(" ")+'</div></div>';
+  }
+  document.getElementById("tanks").innerHTML = h || '<div class="tank">No devices found on this account.</div>';
+}
+function load(){
+  var x=new XMLHttpRequest();
+  x.open("GET","https://api.ptdevices.com/token/v1/devices?api_token="+encodeURIComponent(TOKEN));
+  x.timeout=15000;
+  x.onload=function(){
+    var e=document.getElementById("err");
+    if(x.status===200){
+      try{ var b=JSON.parse(x.responseText), data=b.data; render(data instanceof Array?data:[data]); e.style.display="none";
+        var t=new Date(); document.getElementById("upd").textContent="Checked "+t.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+      }catch(err){ fail("Unexpected reply from PTDevices."); }
+    } else if(x.status===401||x.status===403){ fail("Token rejected. Tap Change token and paste a current one."); }
+    else fail("PTDevices error "+x.status+".");
+  };
+  x.onerror=function(){ fail("Can't reach PTDevices. Check Wi-Fi. Showing last known levels."); };
+  x.ontimeout=x.onerror;
+  x.send();
+}
+function fail(m){ var e=document.getElementById("err"); e.textContent=m; e.style.display="block"; }
+function showSetup(){ document.getElementById("setup").style.display="block"; document.getElementById("tanks").innerHTML=""; document.getElementById("upd").textContent=""; }
+document.getElementById("save").onclick=function(){ var v=document.getElementById("tok").value.trim(); if(!v) return; TOKEN=v; try{ localStorage.setItem(KEY,v); }catch(e){} document.getElementById("setup").style.display="none"; document.getElementById("tok").value=""; load(); };
+document.getElementById("chg").onclick=showSetup;
+if(TOKEN){ load(); } else { showSetup(); }
+setInterval(function(){ if(TOKEN) load(); }, REFRESH_SECONDS*1000);
+// keep the screen awake where supported (tablet use)
+if(navigator.wakeLock){ var wl=function(){ navigator.wakeLock.request("screen").catch(function(){}); }; wl(); document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible") wl(); }); }
+</script>
+</body></html>
