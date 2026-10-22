@@ -3,7 +3,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Water Levels</title>
 <!-- No token in this file. Each device stores its own PTDevices API token in this browser only. -->
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Water"><meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Water"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="theme-color" content="#0e1116">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
 <style>
 :root{--bg:#0e1116;--card:#171b22;--ink:#e8edf2;--dim:#8b95a3;--good:#2fb36d;--warn:#e0a020;--bad:#e5484d;--line:#262c36}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -69,6 +71,18 @@ function render(list){
       +notes.join(" ")+'</div></div>';
   }
   document.getElementById("tanks").innerHTML = h || '<div class="tank">No devices found on this account.</div>';
+  updateBadge(list);
+}
+// Icon badge: the Well % on the app icon's bubble. iOS only refreshes it while the app is open.
+function updateBadge(list){
+  try{
+    if(!("setAppBadge" in navigator)) return;
+    var w=null; for(var i=0;i<list.length;i++){ if(cleanName(list[i].title).toLowerCase().indexOf("well")>=0){ w=list[i]; break; } }
+    if(!w) w=list[0];
+    var p=w&&w.device_data?Math.round(parseFloat(w.device_data.percent_level)):NaN;
+    if(isNaN(p)) navigator.clearAppBadge&&navigator.clearAppBadge();
+    else navigator.setAppBadge(p);
+  }catch(e){}
 }
 function load(){
   var x=new XMLHttpRequest();
@@ -89,11 +103,13 @@ function load(){
 }
 function fail(m){ var e=document.getElementById("err"); e.textContent=m; e.style.display="block"; }
 function showSetup(){ document.getElementById("setup").style.display="block"; document.getElementById("tanks").innerHTML=""; document.getElementById("upd").textContent=""; }
-document.getElementById("save").onclick=function(){ var v=document.getElementById("tok").value.trim(); if(!v) return; TOKEN=v; try{ localStorage.setItem(KEY,v); }catch(e){} document.getElementById("setup").style.display="none"; document.getElementById("tok").value=""; load(); };
+document.getElementById("save").onclick=function(){ var v=document.getElementById("tok").value.trim(); if(!v) return; TOKEN=v; try{ localStorage.setItem(KEY,v); }catch(e){} document.getElementById("setup").style.display="none"; document.getElementById("tok").value=""; try{ if("Notification" in window && Notification.permission==="default") Notification.requestPermission(); }catch(e){} load(); };
 document.getElementById("chg").onclick=showSetup;
 if(TOKEN){ load(); } else { showSetup(); }
 setInterval(function(){ if(TOKEN) load(); }, REFRESH_SECONDS*1000);
 // keep the screen awake where supported (tablet use)
-if(navigator.wakeLock){ var wl=function(){ navigator.wakeLock.request("screen").catch(function(){}); }; wl(); document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible") wl(); }); }
+if(navigator.wakeLock){ var wl=function(){ navigator.wakeLock.request("screen").catch(function(){}); }; wl(); document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible"){ wl(); if(TOKEN) load(); } }); }
+// install as an app (works offline, gets its own icon)
+if("serviceWorker" in navigator){ window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
 </script>
 </body></html>
