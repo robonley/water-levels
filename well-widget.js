@@ -15,6 +15,7 @@ const TOKEN = "PASTE_YOUR_PTDEVICES_TOKEN_HERE";
 const MATCH = "well";     // which tank: title must contain this word
 const LOW = 25, WARN = 50; // % thresholds: below LOW red, below WARN amber
 const REFRESH_MIN = 30;    // how often iOS may refresh (minutes; iOS decides the real timing)
+const OPEN_URL = "https://www.ptdevices.com/device/level/27589"; // tap target: the Well page (opens the PTDevices app if it claims this link, else Safari). "" = just run the script.
 
 const BG = new Color("#0e1116"), INK = new Color("#e8edf2"), DIM = new Color("#8b95a3");
 const COL = { good: new Color("#2fb36d"), warn: new Color("#e0a020"), bad: new Color("#e5484d") };
@@ -67,6 +68,7 @@ try {
   s.font = Font.systemFont(10); s.textColor = DIM;
 }
 
+if (typeof OPEN_URL === "string" && OPEN_URL) w.url = OPEN_URL;
 if (config.runsInWidget) { Script.setWidget(w); }
 else { w.presentSmall(); }
 Script.complete();
