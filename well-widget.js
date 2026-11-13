@@ -17,6 +17,14 @@ const LOW = 25, WARN = 50; // % thresholds: below LOW red, below WARN amber
 const REFRESH_MIN = 30;    // how often iOS may refresh (minutes; iOS decides the real timing)
 const OPEN_URL = "https://www.ptdevices.com/device/level/27589"; // tap target: the Well page (opens the PTDevices app if it claims this link, else Safari). "" = just run the script.
 
+// ----- volume estimate -----
+// US gallons when the sensor reads 100%. The sensor only reports a %, so this converts it.
+// Well: Oct 22 2026 pump test gave ~129 US gal at the static-full level.
+// This ASSUMES the sensor reads ~100% at that static-full level. To recalibrate, note the
+// sensor % at a known volume and set GAL_AT_100 = known_gallons / (pct/100).
+const GAL_AT_100 = 129;
+const SHOW_LITRES = true; // also show litres (1 US gal = 3.78541 L)
+
 const BG = new Color("#0e1116"), INK = new Color("#e8edf2"), DIM = new Color("#8b95a3");
 const COL = { good: new Color("#2fb36d"), warn: new Color("#e0a020"), bad: new Color("#e5484d") };
 
@@ -50,6 +58,16 @@ try {
   w.addSpacer(2);
   const pct = w.addText(ok ? p + "%" : "--");
   pct.font = Font.boldSystemFont(52); pct.textColor = COL[lv];
+
+  if (GAL_AT_100 && ok) {
+    const gExact = (p/100) * GAL_AT_100;
+    const g = Math.round(gExact);
+    const parts = ["~" + g + " gal"];
+    if (SHOW_LITRES) parts.push(Math.round(gExact * 3.78541) + " L");
+    w.addSpacer(3);
+    const vol = w.addText(parts.join("  ·  "));
+    vol.font = Font.mediumSystemFont(13); vol.textColor = INK;
+  }
 
   w.addSpacer(2);
   const bits = [];
